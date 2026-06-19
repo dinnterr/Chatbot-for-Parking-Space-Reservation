@@ -1,5 +1,9 @@
 import sqlite3
+import requests
+from time import sleep
 from datetime import datetime
+# Endpoint URL for the admin agent
+ADMIN_AGENT_URL = "http://127.0.0.1:8000/"
 
 DB_PATH = r"reservations/reservations.db"
 
@@ -8,7 +12,7 @@ def init_db():
     cursor = conn.cursor()
 
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS reservations (сссссирлдрукасоуоавтпдрпмп
+    CREATE TABLE IF NOT EXISTS reservations (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT,
         plate TEXT,
@@ -55,6 +59,67 @@ def save_reservation(data):
     conn.commit()
     conn.close()
 
+def escalate_to_second_agent(reservation_details):
+    """
+    Sends a reservation request to the admin agent and waits for the admin's confirmation/refusal.
+
+    Args:
+        reservation_details (dict): Reservation details including name, plate, date, and time.
+
+    Returns:
+        dict: Combined response from admin regarding reservation status (confirmed or denied).
+    """
+    try:
+        # Step 1: Send reservation to admin agent
+        post_endpoint = f"{ADMIN_AGENT_URL}/send_reservation"
+        response = requests.post(post_endpoint, json=reservation_details)
+
+        if response.status_code != 200:
+            return {
+                "error": f"Failed to send reservation to admin agent. "
+                         f"Status code: {response.status_code}, Response: {response.text}"
+            }
+
+        print("Reservation sent to admin agent successfully.")
+        post_response = response.json()
+
+        # Extract key details for retrieving admin's decision
+        name = reservation_details["name"]
+        date = reservation_details["date"]
+        time = reservation_details["time"]
+        plate = reservation_details["plate"]
+
+        # Step 2: Poll admin agent for decision (GET /get_admin_response)
+        get_endpoint = f"{ADMIN_AGENT_URL}/get_admin_response"
+        for _ in range(3):  # Poll up to 3 times
+            sleep(2)  # Short delay (2 seconds) before each request
+            get_response = requests.get(get_endpoint, params={
+                "name": name,
+                "date": date,
+                "time": time,
+                "plate": plate
+            })
+
+            if get_response.status_code == 200:
+                admin_response = get_response.json()
+                print(f"Admin response received: {admin_response}")
+                return admin_response  # Return the admin's response once available
+            elif get_response.status_code == 404:
+                print("Still waiting for admin's response...")
+            else:
+                return {
+                    "error": f"Unexpected error while checking admin response. "
+                             f"Status code: {get_response.status_code}, Response: {get_response.text}"
+                }
+
+        # If no response after polling, return timeout
+        return {
+            "error": "Admin did not respond in time. Please try again later."
+        }
+
+    except Exception as e:
+        return {"error": f"An exception occurred: {str(e)}"}
+
 def handle_reservation(message, reservation_state):
 
     msg = message.lower().strip()
@@ -90,18 +155,32 @@ def handle_reservation(message, reservation_state):
 
             data = reservation_state["data"]
 
+            data["created_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+            # Send reservation to admin agent
+            print("Sending reservation data to admin agent...")
+            admin_response = escalate_to_second_agent(data)
+
             save_reservation(data)
 
             reservation_state["step"] = None
             reservation_state["data"] = {}
 
-            return (
-                "Reservation confirmed!\n\n"
-                f"Name: {data['name']}\n"
-                f"Plate: {data['plate']}\n"
-                f"Date: {data['date']}\n"
-                f"Time: {data['time']}"
-            )
+            # Handle admin agent response
+            if "error" in admin_response:
+                return f"Reservation process failed: {admin_response['error']}"
+            elif admin_response["status"] == "confirmed":
+                return (
+                        "Your reservation has been **confirmed** by the administrator!\n\n" +
+                        admin_response["details"]
+                )
+            elif admin_response["status"] == "refused":
+                return (
+                        "Your reservation was **not approved** by the administrator.\n\n" +
+                        admin_response["details"]
+                )
 
+            # Default case if response does not match expected format
+            return "Received an unexpected response from the administrator."
     return None
 
