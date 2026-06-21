@@ -3,14 +3,17 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from uuid import uuid4
+import os
 
 # import the .env file
 from dotenv import load_dotenv
 load_dotenv()
-
-# configuration
-DATA_PATH = r"..\data"
-CHROMA_PATH = r"..\chroma_db"
+DATA_PATH = os.getenv("DATA_PATH")
+if not DATA_PATH:
+    raise ValueError("Missing path! Please set DATA_PATH in .env.")
+CHROMA_PATH = os.getenv("CHROMA_PATH")
+if not CHROMA_PATH:
+    raise ValueError("Missing path! Please set CHROMA_PATH in .env.")
 
 embeddings = HuggingFaceEmbeddings(
     model_name="sentence-transformers/all-mpnet-base-v2",
