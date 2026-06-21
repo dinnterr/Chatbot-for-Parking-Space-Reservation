@@ -1,16 +1,26 @@
 import sqlite3
 import requests
+import os
+from dotenv import load_dotenv
 from time import sleep
 from datetime import datetime
 from admin_agent import AdminAgent
+from mcp_textlog import log_reservation
+
+load_dotenv()
+# Retrieve the API key from environment variables
+MCP_API_KEY = os.getenv("MCP_API_KEY")
+if not MCP_API_KEY:
+    raise ValueError("Missing API key! Please set MCP_API_KEY in .env.")
+DB_PATH = os.getenv("DB_PATH")
+if not DB_PATH:
+    raise ValueError("Missing path! Please set DB_PATH in .env.")
 
 # Initialize AdminAgent
 admin_agent = AdminAgent()
 
 # Endpoint URL for the admin agent
 ADMIN_AGENT_URL = "http://127.0.0.1:8000/"
-
-DB_PATH = r"reservations/reservations.db"
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -175,6 +185,8 @@ def handle_reservation_chatbot(message, reservation_state):
             if "error" in admin_response:
                 return f"Reservation process failed: {admin_response['error']}"
             elif admin_response["status"] == "confirmed":
+                # CALL log_reservation tool sending the required data and secure API key
+                log_reservation(data, MCP_API_KEY)
                 return (
                         "Your reservation has been **confirmed** by the administrator!\n\n" +
                         admin_response["details"]
