@@ -9,7 +9,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from evidently import Report
 from evidently.presets import DataDriftPreset
 
-from app.reservations import init_db, handle_reservation, get_all_reservations
+from app.reservations import init_db, handle_reservation_chatbot, get_all_reservations
 from app.guardrails import guardrail_check
 
 load_dotenv()
@@ -58,7 +58,7 @@ def stream_response(message, history):
         return "Your message was blocked due to safety policy."
 
     # CHECK RESERVATION FLOW FIRST
-    reservation_response = handle_reservation(message, reservation_state)
+    reservation_response = handle_reservation_chatbot(message, reservation_state)
     if reservation_response:
         return reservation_response
 
