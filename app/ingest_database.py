@@ -9,8 +9,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # configuration
-DATA_PATH = r"..\data"
-CHROMA_PATH = r"..\chroma_db"
+DATA_PATH = r"C:\Users\Diana Terzi\PycharmProjects\chatbot_parking\data"
+CHROMA_PATH = r"C:\Users\Diana Terzi\PycharmProjects\chatbot_parking\chroma_db"
 
 embeddings = HuggingFaceEmbeddings(
     model_name="sentence-transformers/all-mpnet-base-v2",

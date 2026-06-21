@@ -63,21 +63,13 @@ async def get_admin_response(name: str, date: str, time: str, plate: str):
     if not reservation:
         raise HTTPException(status_code=404, detail="No reservation found with the given details.")
 
-    # Simulate the admin response here
-    # admin_reservations[reservation_key]["status"] = "confirmed"  # Simulated response
     # Prompt admin for decision dynamically
     decision = input(
-        f"Please provide a status for reservation {reservation_key} ('confirmed' or 'rejected'): ").strip().lower()
-
-    # Validate input
-    while decision not in ["confirmed", "rejected"]:
-        print("Invalid input. Please type 'confirmed' or 'rejected'.")
-        decision = input(
-            f"Please provide a status for reservation {reservation_key} ('confirmed' or 'rejected'): ").strip().lower()
+        f"Please provide a status for reservation {reservation_key} ('confirmed' or 'rejected' and any details): ").strip().lower()
 
     # Update the reservation status based on admin's decision
     admin_reservations[reservation_key]["status"] = decision
-    print(f"Reservation {reservation_key} has been {decision}.")
+    print(f"Provided decision for {reservation_key} : {decision}.")
 
     # Return the reservation details and updated status
     return {
