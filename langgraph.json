@@ -1,9 +1,9 @@
 {
   "dockerfile_lines": [],
   "graphs": {
-    "parking_graph": "./parking_graph.py:graph"
+    "p_graph": "./p_graph.py:graph"
   },
-  "env": "../.env",
+  "env": "./.env",
   "python_version": "3.11",
   "dependencies": [
     "."
