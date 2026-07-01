@@ -1,5 +1,4 @@
 from fastmcp import FastMCP
-from datetime import datetime
 from dotenv import load_dotenv
 import threading
 import re
@@ -24,7 +23,7 @@ LOG_FILE = "reservations.txt"
 # Regular expressions to validate input
 NAME_REGEX = r"^[a-zA-Z\s]+$"  # Allow names with letters and spaces
 CAR_NUMBER_REGEX = r"^[A-Z0-9-]+$"  # Uppercase letters, numbers, hyphens
-PERIOD_REGEX = r"^\d{4}-\d{2}-\d{2}\sto\s\d{4}-\d{2}-\d{2}$"  # Format: YYYY-MM-DD to YYYY-MM-DD
+PERIOD_REGEX = r"^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}$"  # Format: YYYY-MM-DD 00:00
 
 
 def validate_inputs(name, car_number, reservation_period):
@@ -37,7 +36,7 @@ def validate_inputs(name, car_number, reservation_period):
     if not re.match(CAR_NUMBER_REGEX, car_number):
         raise ValueError(f"Invalid car number: {car_number}. Must contain uppercase letters, numbers, and hyphens.")
     if not re.match(PERIOD_REGEX, reservation_period):
-        raise ValueError(f"Invalid reservation period: {reservation_period}. Must match 'YYYY-MM-DD to YYYY-MM-DD'.")
+        raise ValueError(f"Invalid reservation period: {reservation_period}. Must match 'YYYY-MM-DD 00:00'.")
 
 
 @mcp.tool()
@@ -74,7 +73,7 @@ def log_reservation(reservation: dict, api_key: str) -> str:
         reservation_period = f"{date} {time}"
 
         # Validate inputs
-        validate_inputs(name, car_number, f"{date} to {date}")
+        validate_inputs(name, car_number, reservation_period)
 
         # Construct the log entry
         entry = f"{name} | {car_number} | {reservation_period} | {created_at}\n"

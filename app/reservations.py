@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from time import sleep
 from datetime import datetime
 from admin_agent import AdminAgent
-from mcp_textlog import log_reservation
+from mcp_client import log_reservation_mcp
 
 load_dotenv()
 # Retrieve the API key from environment variables
@@ -135,7 +135,7 @@ def escalate_to_admin(reservation_details):
     except Exception as e:
         return {"error": f"An exception occurred: {str(e)}"}
 
-def handle_reservation_chatbot(message, reservation_state):
+async def handle_reservation_chatbot(message, reservation_state):
 
     msg = message.lower().strip()
 
@@ -176,8 +176,6 @@ def handle_reservation_chatbot(message, reservation_state):
             print("Sending reservation data to admin agent...")
             admin_response = escalate_to_admin(data)
 
-            save_reservation(data)
-
             reservation_state["step"] = None
             reservation_state["data"] = {}
 
@@ -185,8 +183,13 @@ def handle_reservation_chatbot(message, reservation_state):
             if "error" in admin_response:
                 return f"Reservation process failed: {admin_response['error']}"
             elif admin_response["status"] == "confirmed":
-                # CALL log_reservation tool sending the required data and secure API key
-                log_reservation(data, MCP_API_KEY)
+                # Save only approved reservations
+                save_reservation(data)
+                # Log to the MCP server, CALL log_reservation tool sending the required data and secure API key
+                try:
+                    await log_reservation_mcp(data, MCP_API_KEY)
+                except Exception as e:
+                    print(f"Failed to log reservation via MCP: {e}")
                 return (
                         "Your reservation has been **confirmed** by the administrator!\n\n" +
                         admin_response["details"]

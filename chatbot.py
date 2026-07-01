@@ -51,75 +51,78 @@ reservation_state = {
 }
 
 # call this function for every message added to the chatbot
-def stream_response(message, history):
+async def stream_response(message, history):
+    try:
+        # GUARDRAIL CHECK
+        if guardrail_check(message):
+            return "Your message was blocked due to safety policy."
 
-    # GUARDRAIL CHECK
-    if guardrail_check(message):
-        return "Your message was blocked due to safety policy."
+        # CHECK RESERVATION FLOW FIRST
+        reservation_response = await handle_reservation_chatbot(message, reservation_state)
+        if reservation_response:
+            return reservation_response
 
-    # CHECK RESERVATION FLOW FIRST
-    reservation_response = handle_reservation_chatbot(message, reservation_state)
-    if reservation_response:
-        return reservation_response
+        msg = message.lower().strip()
+        # SHOW RESERVATIONS COMMAND
+        if msg in ["show reservations", "list reservations", "all reservations"]:
+            rows = get_all_reservations()
 
-    msg = message.lower().strip()
-    # SHOW RESERVATIONS COMMAND
-    if msg in ["show reservations", "list reservations", "all reservations"]:
-        rows = get_all_reservations()
+            if not rows:
+                return "No reservations found."
 
-        if not rows:
-            return "No reservations found."
+            result = "All reservations:\n\n"
 
-        result = "All reservations:\n\n"
+            for r in rows:
+                name, plate, date, time, created_at = r
+                result += (
+                    f"Name:{name}\n"
+                    f"Plate:{plate}\n"
+                    f"{date} at {time}\n"
+                    f"Created: {created_at}\n"
+                    f"----------------------\n"
+                )
 
-        for r in rows:
-            name, plate, date, time, created_at = r
-            result += (
-                f"Name:{name}\n"
-                f"Plate:{plate}\n"
-                f"{date} at {time}\n"
-                f"Created: {created_at}\n"
-                f"----------------------\n"
-            )
+            return result
 
-        return result
+        #RAG
+        # retrieve the relevant chunks based on the question asked
+        docs = retriever.invoke(message)
 
-    #RAG
-    # retrieve the relevant chunks based on the question asked
-    docs = retriever.invoke(message)
+        # add all the chunks to 'knowledge'
+        knowledge = ""
 
-    # add all the chunks to 'knowledge'
-    knowledge = ""
+        for doc in docs:
+            knowledge += doc.page_content + "\n\n"
 
-    for doc in docs:
-        knowledge += doc.page_content + "\n\n"
+        # make the call to the LLM (including prompt)
+        if message is not None:
 
-    # make the call to the LLM (including prompt)
-    if message is not None:
+            rag_prompt = f"""
+            You are a parking assistant chatbot which answers questions based on knowledge which is provided to you.
+            While answering, you don't use your internal knowledge, 
+            but solely the information in the "The knowledge" section.
+            You don't mention anything to the user about the provided knowledge.
+    
+            The question: {message}
+    
+            The knowledge: {knowledge}
+    
+            """
 
-        rag_prompt = f"""
-        You are a parking assistant chatbot which answers questions based on knowledge which is provided to you.
-        While answering, you don't use your internal knowledge, 
-        but solely the information in the "The knowledge" section.
-        You don't mention anything to the user about the provided knowledge.
+            print(rag_prompt)
 
-        The question: {message}
+            response = llm.invoke([
+                HumanMessage(content=rag_prompt)
+            ])
 
-        The knowledge: {knowledge}
+            response_text = response.content
+            if guardrail_check(response_text):
+                return "Response blocked due to unsafe content."
+            return response.content.split("<|assistant|>")[-1].strip()
+    except Exception as e:
+        print(f"Unexpected error in stream_response: {e}")
+        return "An unexpected error occurred while processing your request. Please try again."
 
-        """
-
-        print(rag_prompt)
-
-        response = llm.invoke([
-            HumanMessage(content=rag_prompt)
-        ])
-
-        response_text = response.content
-        if guardrail_check(response_text):
-            return "Response blocked due to unsafe content."
-
-        return  response.content.split("<|assistant|>")[-1].strip()
 
 # EVALUATION
 eval_dataset = [

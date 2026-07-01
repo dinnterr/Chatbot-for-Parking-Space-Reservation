@@ -152,12 +152,13 @@ The **Admin Agent** requires the **Admin API** to handle reservation escalations
 ```bash
 uvicorn admin_api:app --reload
 ```
-### Run the MCP Server
+### Run the MCP Server (optional)
 The **MCP Server** is responsible for securely saving approved reservation details into the `reservations.txt` file. Run the MCP Server:
 
 ```bash
 python mcp_textlog.py
 ```
+**Note:** If you don't start the server manually, the FastMCP client will automatically launch `mcp_textlog.py` when the logging tool is invoked.
 
 ---
 
